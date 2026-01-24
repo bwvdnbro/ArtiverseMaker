@@ -6,6 +6,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as pl
 
+def sersic(r, I0, rs, n):
+  return I0 * np.exp(-((r / rs) ** (1.0 / n)))
+
 if __name__ == "__main__":
     np.random.seed(42)
 
@@ -49,29 +52,40 @@ if __name__ == "__main__":
         params = np.append(params, xy[mask[ybin, xbin]], axis=0)
     params = params[:target]
 
-    params[:, 0] = 1.0 + 0.9 * params[:, 0]
+    params[:, 0] = 1.0 + 0.5 * params[:, 0]
     params[:, 1] = 1.0 + 0.01 * params[:, 1]
 
     pl.semilogy(params[:, 0], params[:, 1], ".")
     pl.savefig("params.png", dpi=300)
     pl.close()
 
-    maxx = 10000.0
+    maxx = 1000.0
     coords = np.random.rand(target, 2) * maxx
     I0s = 1.0 + 0.1 * np.random.rand(target)
 
-    imgcoord = np.linspace(0.1 * maxx, 0.9 * maxx, 2048)
+    imgcoord = np.linspace(0., maxx, 2048)
     imgx, imgy = np.meshgrid(imgcoord, imgcoord)
     img = np.zeros(imgx.shape)
     print(img.shape)
     i = 0
+    Icut = 0.1
     for (x, y), I0, (n, rs) in zip(coords, I0s, params):
-        r = np.sqrt((imgx - x) ** 2 + (imgy - y) ** 2)
-        I = I0 * np.exp(-((r / rs) ** (1.0 / n)))
-        print(I.max())
+        dx = imgx - x
+        dx = np.where(dx < -0.5 * maxx, dx + maxx, dx)
+        dx = np.where(dx >= 0.5 * maxx, dx - maxx, dx)
+        dy = imgy - y
+        dy = np.where(dy < -0.5 * maxx, dy + maxx, dy)
+        dy = np.where(dy >= 0.5 * maxx, dy - maxx, dy)
+        r = np.sqrt(dx ** 2 + dy ** 2)
+        I = sersic(r, I0, rs, n)
+        I -= Icut
+        I[I < 0] = 0.
+        print(I[I>0].min(), Icut)
         img += I
         print(i)
         i += 1
+
+#    img += np.random.rand(*img.shape) * 10. * Icut
 
     np.savez_compressed(
         "full_sample.npz",

@@ -16,6 +16,13 @@ if __name__ == "__main__":
 
     data = np.load(args.input)
 
-    pl.imshow(data["img"])
+    img = data["img"]
+#    img += np.random.rand(*img.shape) * 1.e-1
+
+    print(img.min(), img.max())
+
+#    img = np.log(img)
+
+    pl.imshow(img)
     pl.gca().axis("off")
     pl.savefig(args.output, dpi=300, bbox_inches="tight")
