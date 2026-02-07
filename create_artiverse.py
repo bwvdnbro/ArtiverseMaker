@@ -6,8 +6,10 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as pl
 
+
 def sersic(r, I0, rs, n):
-  return I0 * np.exp(-((r / rs) ** (1.0 / n)))
+    return I0 * np.exp(-((r / rs) ** (1.0 / n)))
+
 
 if __name__ == "__main__":
     np.random.seed(42)
@@ -61,9 +63,24 @@ if __name__ == "__main__":
 
     maxx = 1000.0
     coords = np.random.rand(target, 2) * maxx
-    I0s = 1.0 + 0.1 * np.random.rand(target)
+    I0s = 1.0 + 10.0 * np.random.rand(target)
 
-    imgcoord = np.linspace(0., maxx, 2048)
+    dpixs = 0.01 + 0.02 * np.random.rand(target)
+    sizefacs = 2.0 + 3.0 * np.random.rand(target)
+    for i, (dpix, sizefac, I0, (n, rs)) in enumerate(zip(dpixs, sizefacs, I0s, params)):
+        size = sizefac * rs
+        imgcoord = np.arange(0.0, size, dpix)
+        imgcoord = np.append(-imgcoord[1:][::-1], imgcoord)
+        imgx, imgy = np.meshgrid(imgcoord, imgcoord)
+        r = np.sqrt(imgx**2 + imgy**2)
+        I = sersic(r, I0, rs, n)
+        I += np.random.rand(*I.shape) * 1.0e-3 * I0
+        print(i, dpix, sizefac, I.shape)
+        np.savez_compressed(
+            f"img_{i:03d}.npz", I0=I0, n=n, rs=rs, img=I, x=imgx, y=imgy
+        )
+
+    imgcoord = np.linspace(0.0, maxx, 2048)
     imgx, imgy = np.meshgrid(imgcoord, imgcoord)
     img = np.zeros(imgx.shape)
     print(img.shape)
@@ -76,16 +93,16 @@ if __name__ == "__main__":
         dy = imgy - y
         dy = np.where(dy < -0.5 * maxx, dy + maxx, dy)
         dy = np.where(dy >= 0.5 * maxx, dy - maxx, dy)
-        r = np.sqrt(dx ** 2 + dy ** 2)
+        r = np.sqrt(dx**2 + dy**2)
         I = sersic(r, I0, rs, n)
         I -= Icut
-        I[I < 0] = 0.
-        print(I[I>0].min(), Icut)
+        I[I < 0] = 0.0
+        print(I[I > 0].min(), Icut)
         img += I
         print(i)
         i += 1
 
-#    img += np.random.rand(*img.shape) * 10. * Icut
+    #    img += np.random.rand(*img.shape) * 10. * Icut
 
     np.savez_compressed(
         "full_sample.npz",

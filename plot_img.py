@@ -17,11 +17,11 @@ if __name__ == "__main__":
     data = np.load(args.input)
 
     img = data["img"]
-#    img += np.random.rand(*img.shape) * 1.e-1
+    #    img += np.random.rand(*img.shape) * 1.e-1
 
     print(img.min(), img.max())
 
-#    img = np.log(img)
+    #    img = np.log(img)
 
     pl.imshow(img)
     pl.gca().axis("off")
