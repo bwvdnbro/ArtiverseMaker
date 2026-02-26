@@ -6,6 +6,31 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as pl
 
+import astropy.units as u
+import astropy.coordinates as c
+from astropy import wcs
+from astropy.io import fits
+
+
+def create_fits(name, x, y, I, D, cx, cy):
+    dx = (x[0, 1] - x[0, 0]) * u.kpc
+    dy = (y[1, 0] - y[0, 0]) * u.kpc
+    dax = (dx / D).to(u.arcsec, equivalencies=u.dimensionless_angles())
+    day = (dy / D).to(u.arcsec, equivalencies=u.dimensionless_angles())
+    centre = c.SkyCoord(ra=cx, dec=cy, frame="icrs")
+    w = wcs.WCS(naxis=2)
+    w.wcs.crpix = [x.shape[0] // 2, x.shape[1] // 2]
+    w.wcs.cdelt = [dax / u.degree, day / u.degree]
+    w.wcs.crval = [centre.ra.degree, centre.dec.degree]
+    w.wcs.ctype = ["RA---TAN", "DEC--TAN"]
+
+    header = w.to_header()
+    header.update(DISTANCE=(D.to(u.Mpc).value, "[Mpc] Distance to object"))
+
+    hdu = fits.PrimaryHDU(data=I, header=header)
+    hdul = fits.HDUList([hdu])
+    hdul.writeto(name, overwrite=True)
+
 
 def sersic(r, I0, rs, n):
     return I0 * np.exp(-((r / rs) ** (1.0 / n)))
@@ -65,9 +90,17 @@ if __name__ == "__main__":
     coords = np.random.rand(target, 2) * maxx
     I0s = 1.0 + 10.0 * np.random.rand(target)
 
+    long = (2.0 * np.pi * np.random.random(target) * u.radian).to(u.deg)
+    lat = (
+        (np.arccos(2.0 * np.random.random(target) - 1.0) - 0.5 * np.pi) * u.radian
+    ).to(u.deg)
+    Ds = (300.0 + 200.0 * np.random.random(target)) * u.Mpc
+
     dpixs = 0.01 + 0.02 * np.random.rand(target)
     sizefacs = 2.0 + 3.0 * np.random.rand(target)
-    for i, (dpix, sizefac, I0, (n, rs)) in enumerate(zip(dpixs, sizefacs, I0s, params)):
+    for i, (dpix, sizefac, I0, (n, rs), ra, dec, D) in enumerate(
+        zip(dpixs, sizefacs, I0s, params, long, lat, Ds)
+    ):
         size = sizefac * rs
         imgcoord = np.arange(0.0, size, dpix)
         imgcoord = np.append(-imgcoord[1:][::-1], imgcoord)
@@ -79,6 +112,7 @@ if __name__ == "__main__":
         np.savez_compressed(
             f"img_{i:03d}.npz", I0=I0, n=n, rs=rs, img=I, x=imgx, y=imgy
         )
+        create_fits(f"img_{i:03d}.fits", imgx, imgy, I, D, ra, dec)
 
     imgcoord = np.linspace(0.0, maxx, 2048)
     imgx, imgy = np.meshgrid(imgcoord, imgcoord)
